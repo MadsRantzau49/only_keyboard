@@ -1,21 +1,11 @@
-from pynput import mouse, keyboard
+from pynput import mouse
+from pynput import keyboard as keyb
+import keyboard
 from screeninfo import get_monitors
 
-numpad_mapping = {
-    keyboard.Key.numpad0: '0',
-    keyboard.Key.numpad1: '1',
-    keyboard.Key.numpad2: '2',
-    keyboard.Key.numpad3: '3',
-    keyboard.Key.numpad4: '4',
-    keyboard.Key.numpad5: '5',
-    keyboard.Key.numpad6: '6',
-    keyboard.Key.numpad7: '7',
-    keyboard.Key.numpad8: '8',
-    keyboard.Key.numpad9: '9',
-}
-
 # Distance to move the cursor
-MOVE_DISTANCE = 20
+MOVE_DISTANCE_X = 340
+MOVE_DISTANCE_Y = 250
 
 # State to track pressed keys
 pressed_keys = set()
@@ -26,6 +16,21 @@ listener_active = False
 # Setup mouse controller
 mouse_controller = mouse.Controller()
 
+# Dictionary to map key codes to numbers on the numlock keypad
+numlock_keys = {
+    96: 0,
+    97: 1,
+    98: 2,
+    99: 3,
+    100: 4,
+    101: 5,
+    102: 6,
+    103: 7,
+    104: 8,
+    105: 9
+}
+
+
 def start_listener():
     global listener_active
     listener_active = not listener_active
@@ -35,7 +40,7 @@ def start_listener():
         print("Listener deactivated")
 
 def keychar(char):
-    return keyboard.KeyCode.from_char(char)
+    return keyb.KeyCode.from_char(char)
 
 def default_courser(num):
     x_guide = [0.25,0.5,0.75]
@@ -87,28 +92,36 @@ def default_courser(num):
 # Function to move the cursor
 def on_press(key):
     try:
+        # Toggle script
         pressed_keys.add(key)
-        print(int(key))
-        # Check for Ctrl + M combination
-        if  keychar("q") in pressed_keys and keychar("w") in pressed_keys and keychar("e") in pressed_keys:
+        if keyboard.is_pressed('alt+s'):
             start_listener()
             return
 
-        # Exit condition: Ctrl + K
-        if  keychar("a") in pressed_keys and keychar("s") in pressed_keys and keychar("d") in pressed_keys:
+        # Terminate script
+        if  keyboard.is_pressed('alt+d'):
             print("Exiting...")
             exit()
 
         # Move mouse if listener is active
         if listener_active:
-            move_cursor()
+            print(key)
+            # Move curser with arrows
+            if key in [keyb.Key.left, keyb.Key.right, keyb.Key.up, keyb.Key.down]:
+                print("ARROW")
+                move_cursor() 
 
-        if isinstance(key, keyboard.KeyCode):
-            if key.char.isdigit():
-                default_courser(int(key.char))
+            # Fast move with numpad.
+            elif hasattr(key, 'vk') and key.vk in numlock_keys:
+                print("WORKED",key)
+                default_courser(numlock_keys[key.vk])
 
-    except AttributeError:
-        pass
+            # Click when pressing space
+            elif key == keyb.Key.space:
+                mouse_controller.click(mouse.Button.left, 1)
+        
+    except Exception as e:
+        print(f"Error occurred: {e}")
 
 def on_release(key):
     if key in pressed_keys:
@@ -119,26 +132,28 @@ def move_cursor():
     x, y = mouse_controller.position
 
     # Determine new position based on pressed keys
-    if keyboard.Key.up in pressed_keys and keyboard.Key.left in pressed_keys:
-        mouse_controller.position = (x - MOVE_DISTANCE, y - MOVE_DISTANCE)
-    elif keyboard.Key.up in pressed_keys and keyboard.Key.right in pressed_keys:
-        mouse_controller.position = (x + MOVE_DISTANCE, y - MOVE_DISTANCE)
-    elif keyboard.Key.down in pressed_keys and keyboard.Key.left in pressed_keys:
-        mouse_controller.position = (x - MOVE_DISTANCE, y + MOVE_DISTANCE)
-    elif keyboard.Key.down in pressed_keys and keyboard.Key.right in pressed_keys:
-        mouse_controller.position = (x + MOVE_DISTANCE, y + MOVE_DISTANCE)
+    if keyb.Key.up in pressed_keys and keyb.Key.left in pressed_keys:
+        mouse_controller.position = (x - MOVE_DISTANCE_X, y - MOVE_DISTANCE_Y)
+    elif keyb.Key.up in pressed_keys and keyb.Key.right in pressed_keys:
+        mouse_controller.position = (x + MOVE_DISTANCE_X, y - MOVE_DISTANCE_Y)
+    elif keyb.Key.down in pressed_keys and keyb.Key.left in pressed_keys:
+        mouse_controller.position = (x - MOVE_DISTANCE_X, y + MOVE_DISTANCE_Y)
+    elif keyb.Key.down in pressed_keys and keyb.Key.right in pressed_keys:
+        mouse_controller.position = (x + MOVE_DISTANCE_X, y + MOVE_DISTANCE_Y)
     else:
-        if keyboard.Key.up in pressed_keys:
-            mouse_controller.position = (x, y - MOVE_DISTANCE)
-        if keyboard.Key.down in pressed_keys:
-            mouse_controller.position = (x, y + MOVE_DISTANCE)
-        if keyboard.Key.left in pressed_keys:
-            mouse_controller.position = (x - MOVE_DISTANCE, y)
-        if keyboard.Key.right in pressed_keys:
-            mouse_controller.position = (x + MOVE_DISTANCE, y)
-    if keyboard.Key.space in pressed_keys:
-        mouse_controller.click(mouse.Button.left, 1)
+        if keyb.Key.up in pressed_keys:
+            mouse_controller.position = (x, y - MOVE_DISTANCE_Y)
+        if keyb.Key.down in pressed_keys:
+            mouse_controller.position = (x, y + MOVE_DISTANCE_Y)
+        if keyb.Key.left in pressed_keys:
+            mouse_controller.position = (x - MOVE_DISTANCE_X, y)
+        if keyb.Key.right in pressed_keys:
+            mouse_controller.position = (x + MOVE_DISTANCE_X, y)
+
+
+def ctrl_pressed():
+    print("CTRL!")
 
 # Setup keyboard listener
-with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
+with keyb.Listener(on_press=on_press, on_release=on_release) as listener:
     listener.join()
